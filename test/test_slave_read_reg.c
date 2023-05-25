@@ -114,16 +114,32 @@ void test_slave_read_reg_normal(void) {
     modbus_slave_add_register(&slave, &t3_reg);
 
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
-    modbus_slave_handle_rtu(&slave, buf, 8);
+    int rc = modbus_slave_handle_rtu(&slave, buf, 8);
+    if(rc != 0x00 || buf[1] != 0x03) {
+        printf("wrong rc or fc: %d %d\r\n", rc, buf[1]);
+        exit(-1);
+    }
 
     uint8_t buf1[256] = {0x01, 0x03, 0x00, 0x02, 0x00, 0x02, 0x65, 0xCB};
-    modbus_slave_handle_rtu(&slave, buf1, 8);
+    rc = modbus_slave_handle_rtu(&slave, buf1, 8);
+    if(rc != 0x00 || buf1[1] != 0x03) {
+        printf("wrong rc or fc: %d %d\r\n", rc, buf1[1]);
+        exit(-1);
+    }
 
     uint8_t buf2[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x04, 0x44, 0x09};
-    modbus_slave_handle_rtu(&slave, buf2, 8);
+    rc = modbus_slave_handle_rtu(&slave, buf2, 8);
+    if(rc != 0x00 || buf2[1] != 0x03) {
+        printf("wrong rc or fc: %d %d\r\n", rc, buf2[1]);
+        exit(-1);
+    }
 
     uint8_t buf3[256] = {0x01, 0x03, 0x00, 0x04, 0x00, 0x02, 0x85, 0xCA};
-    modbus_slave_handle_rtu(&slave, buf3, 8);
+    rc = modbus_slave_handle_rtu(&slave, buf3, 8);
+    if(rc != 0x00 || buf3[1] != 0x03) {
+        printf("wrong rc or fc: %d %d\r\n", rc, buf3[1]);
+        exit(-1);
+    }
 
     printf("pass!\r\n");
 }
