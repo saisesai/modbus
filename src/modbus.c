@@ -1,5 +1,12 @@
 #include "modbus.h"
 
+/**
+ * @brief CCITT CRC16 Lookup Table
+ *
+ * Lookup table for calculating the CCITT CRC16 checksum.
+ * The table contains 256 16-bit values representing the CRC16 checksums
+ * for all possible 8-bit input values.
+ */
 static uint16_t ccitt_table[256] =
         {0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280,
          0xC241, 0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481,
@@ -36,12 +43,21 @@ static uint16_t ccitt_table[256] =
          0x4040,
         };
 
+/**
+ * @brief Calculate the Modbus CRC16 checksum for a given buffer.
+ *
+ * This function calculates the Modbus CRC16 checksum for the specified buffer.
+ * It uses the CCITT CRC16 lookup table for efficient computation.
+ *
+ * @param buf The input buffer.
+ * @param len The length of the buffer.
+ * @return The calculated CRC16 checksum.
+ */
 static uint16_t modbus_crc16(uint8_t *buf, int len) {
     uint16_t crc = 0xffff;
     while (len-- > 0) { crc = ccitt_table[(crc ^ *buf++) & 0xff] ^ (crc >> 8); }
     return crc;
 }
-
 
 uint16_t modbus_reg_to_uint16(const uint8_t *buf) {
     uint16_t rst;
