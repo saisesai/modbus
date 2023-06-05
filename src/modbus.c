@@ -42,6 +42,19 @@ static uint16_t modbus_crc16(uint8_t *buf, int len) {
     return crc;
 }
 
+
+uint16_t modbus_reg_to_uint16(const uint8_t *buf) {
+    uint16_t rst;
+    ((uint8_t *) &rst)[0] = buf[1];
+    ((uint8_t *) &rst)[1] = buf[0];
+    return rst;
+}
+
+void modbus_uint16_to_reg(uint16_t uint16, uint8_t *buf) {
+    buf[0] = ((uint8_t *) &uint16)[1];
+    buf[1] = ((uint8_t *) &uint16)[0];
+}
+
 float modbus_f32_byte_swap(const uint8_t *buf) {
     float rst;
     ((uint8_t *) &rst)[2] = buf[3];
@@ -51,24 +64,12 @@ float modbus_f32_byte_swap(const uint8_t *buf) {
     return rst;
 }
 
-static uint16_t modbus_reg_to_uint16(const uint8_t *buf) {
-    uint16_t rst;
-    ((uint8_t *) &rst)[0] = buf[1];
-    ((uint8_t *) &rst)[1] = buf[0];
-    return rst;
-}
-
-/*
-static void modbus_uint16_to_reg(uint16_t uint16, uint8_t *buf) {
-    buf[0] = ((uint8_t *) &uint16)[1];
-    buf[1] = ((uint8_t *) &uint16)[0];
-} */
-
 int modbus_register_init(modbus_register_t *reg) {
     reg->index = 0;
     reg->size = 0;
     reg->data = NULL;
     reg->next = NULL;
+    reg->on_read = NULL;
     reg->on_write = NULL;
     return 0;
 }
@@ -82,7 +83,7 @@ int modbus_slave_init(modbus_slave_t *slave) {
 }
 
 int modbus_slave_add_register(modbus_slave_t *slave, modbus_register_t *reg) {
-    /*TODO check address and length*/
+    /* TODO: check address and length */
     modbus_register_t *reg_last = &slave->register_entry;
     while (reg_last->next != NULL) {
         reg_last = reg_last->next;
@@ -105,17 +106,22 @@ int modbus_slave_remove_register(modbus_slave_t *slave, modbus_register_t *reg) 
 }
 
 /**
- * @brief modbus find slave register
- * @param slave slave ptr
- * @param addr_start register address start
- * @param reg return found register ptr, if not found do nothing
- * @retval
- *      - 0: register not found \n
- *      - 1: ok
- **/
+ * @brief Finds a Modbus slave register based on the register address.
+ *
+ * This function is used to find a Modbus slave register based on the given
+ * register address. It searches the register chain list of the specified slave
+ * and returns the found register pointer through the 'reg' parameter. If the
+ * register is not found, the 'reg' parameter will not be modified.
+ *
+ * @param slave Pointer to the Modbus slave.
+ * @param addr_start Register address to find.
+ * @param reg Pointer to store the found register pointer.
+ * @return 0 if register is not found, 1 if register is found.
+ */
 static int modbus_slave_find_register(modbus_slave_t *slave, uint16_t addr_start, modbus_register_t **reg) {
     int reg_found = 0;
     modbus_register_t *reg_now;
+    /* Iterate through the register chain list */
     for (reg_now = &slave->register_entry; reg_now != NULL; reg_now = reg_now->next) {
         if (reg_now->index == addr_start) {
             reg_found = 1;
@@ -127,105 +133,163 @@ static int modbus_slave_find_register(modbus_slave_t *slave, uint16_t addr_start
 }
 
 /**
- * @brief slave handle rtu exception
- * @param slave slave ptr
- * @param buf buffer ptr
- * @param code exception code \n
- *      - 0x01: function code not supported \n
- *      - 0x02: invalid register address \n
- *      - 0x03: invalid register quantity \n
- *      - 0x04: internal error
- **/
+ * @brief Handles RTU exception in Modbus slave.
+ *
+ * This function is used to handle RTU exceptions in the Modbus slave. It modifies
+ * the provided buffer to include the exception code and calculates the CRC16 checksum
+ * for the modified buffer. If an on_reply callback function is registered for the slave,
+ * it is called with the modified buffer as the data to be sent as a response.
+ *
+ * @param slave Pointer to the Modbus slave.
+ * @param buf Pointer to the buffer.
+ * @param code Exception code:
+ *      - 0x01: function code not supported.
+ *      - 0x02: invalid register address.
+ *      - 0x03: invalid register quantity.
+ *      - 0x04: internal error.
+ * @return 0 indicating successful handling of the RTU exception.
+ */
 static int modbus_slave_handle_rtu_exception(modbus_slave_t *slave, uint8_t *buf, uint8_t code) {
     uint16_t crc16;
-    buf[1] += 0x80;
-    buf[2] = code;
-    crc16 = modbus_crc16(buf, 3);
-    memcpy(&buf[3], &crc16, 2);
+
+    buf[1] += 0x80; /* Set the MSB of the function code to indicate an exception */
+    buf[2] = code; /* Set the exception code */
+
+    crc16 = modbus_crc16(buf, 3); /* Calculate CRC16 checksum for the modified buffer */
+    memcpy(&buf[3], &crc16, 2); /* Append the CRC16 checksum to the buffer */
+
     if (slave->on_reply != NULL) {
-        slave->on_reply(slave, buf, 5);
+        slave->on_reply(slave, buf, 5); /* Call the on_reply callback function with the modified buffer */
     }
-    return 0;
+
+    return 0; /* Return 0 indicating successful handling of the RTU exception */
 }
 
+/**
+ * @brief Handles the Modbus function code 03 (Read Holding Registers) in Modbus RTU.
+ * @param slave Pointer to the Modbus slave structure.
+ * @param buf Pointer to the buffer containing the received Modbus RTU request.
+ * @return 0 on successful handling of the function code, an error code otherwise.
+ *     - 0x02: Invalid register address.
+ *     - 0x03: Invalid register quantity.
+ */
 static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
     int reg_found;
     uint16_t addr_start, reg_quantity, copied = 0, crc16;
     modbus_register_t *reg_now;
-    /*get addr and quantity*/
+
+    /* Extract addr_start and reg_quantity */
     addr_start = modbus_reg_to_uint16(&buf[2]);
     reg_quantity = modbus_reg_to_uint16(&buf[4]);
-    /*find and starting register*/
+
+    /* Find and validate the starting register */
     reg_found = modbus_slave_find_register(slave, addr_start + 1, &reg_now);
     if (!reg_found) {
+        /* Handle the exception case of an invalid register address */
         modbus_slave_handle_rtu_exception(slave, buf, 0x02);
         return 0x02;
     }
-    /*copy registers*/
+
+    /* Copy registers */
     while (1) {
+        /* Done */
         if (copied == reg_quantity * 2) {
             break;
         }
-        if (reg_now == NULL
-            || (reg_now->index - 1) * 2 != copied + addr_start * 2
-            || copied > reg_quantity * 2) {
+
+        /* When error occurs */
+        if (reg_now == NULL ||
+            (reg_now->index - 1) * 2 != copied + addr_start * 2 ||
+            copied > reg_quantity * 2) {
+            /* Handle the exception case of an invalid register quantity */
             modbus_slave_handle_rtu_exception(slave, buf, 0x03);
             return 0x03;
         }
+
+        /* TODO: change the rule */
+        /* Copy register data to the response buffer */
         memcpy(&buf[copied + 3], reg_now->data, reg_now->size * 2);
         copied += reg_now->size * 2;
         reg_now = reg_now->next;
     }
+
+    /* Update the response buffer with the copied register quantity */
     buf[2] = copied;
+
+    /* Calculate and append the CRC16 checksum */
     crc16 = modbus_crc16(buf, copied + 3);
     memcpy(&buf[copied + 3], &crc16, 2);
+
+    /* Call the on_reply callback function with the response buffer if registered */
     if (slave->on_reply != NULL) {
         slave->on_reply(slave, buf, copied + 3 + 2);
     }
+
     return 0;
 }
 
+
+/**
+ * @brief Handles the Modbus function code 10 (Write Multiple Registers) in Modbus RTU.
+ * @param slave Pointer to the Modbus slave structure.
+ * @param buf Pointer to the buffer containing the received Modbus RTU request.
+ * @return 0 on successful handling of the function code, an error code otherwise.
+ *     - 0x02: Invalid register address.
+ *     - 0x03: Invalid register quantity or byte count.
+ *     - 0x04: Internal error during register writing.
+ *     - 0x01: Function code not supported.
+ */
 static int modbus_slave_handle_rtu_fc10(modbus_slave_t *slave, uint8_t *buf) {
     int reg_found;
     uint8_t byte_count, copied = 0;
     uint16_t addr_start, reg_quantity, crc16;
     modbus_register_t *reg_now;
-    /*extract info from buffer*/
+
+    /* Extract information from the buffer */
     addr_start = modbus_reg_to_uint16(&buf[2]);
     reg_quantity = modbus_reg_to_uint16(&buf[4]);
     byte_count = buf[6];
-    /*check starting address*/
+
+    /* Check the starting address */
     reg_found = modbus_slave_find_register(slave, addr_start + 1, &reg_now);
     if (!reg_found) {
+        /* Handle the exception case of an invalid register address */
         modbus_slave_handle_rtu_exception(slave, buf, 0x02);
         return 0x02;
     }
-    /*do on write callback and copy value to register*/
+
+    /* Perform on_write callback and copy value to register */
     while (1) {
         if (copied == byte_count) {
             break;
         }
-        if (reg_quantity * 2 != byte_count
-            || reg_now == NULL
-            || (reg_now->index - 1) * 2 != copied + addr_start * 2
-            || byte_count < copied + reg_now->size) {
+
+        if (reg_quantity * 2 != byte_count ||
+            reg_now == NULL ||
+            (reg_now->index - 1) * 2 != copied + addr_start * 2 ||
+            byte_count < copied + reg_now->size) {
+            /* Handle the exception case of an invalid register quantity or byte count */
             modbus_slave_handle_rtu_exception(slave, buf, 0x03);
             return 0x03;
         }
+
+        /* TODO: change the rule */
         if (reg_now->on_write != NULL) {
             if (reg_now->on_write(reg_now, &buf[copied + 7]) < 0) {
-                /*internal error*/
+                /* Handle the internal error case during register writing */
                 modbus_slave_handle_rtu_exception(slave, buf, 0x04);
                 return 0x04;
             }
             copied += reg_now->size * 2;
             reg_now = reg_now->next;
         } else {
+            /* Handle the exception case of function code not supported */
             modbus_slave_handle_rtu_exception(slave, buf, 0x01);
             return 0x01;
         }
     }
-    /*success*/
+
+    /* Success */
     crc16 = modbus_crc16(buf, 6);
     memcpy(&buf[6], &crc16, 2);
     if (slave->on_reply != NULL) {
