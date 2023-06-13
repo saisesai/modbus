@@ -1,6 +1,10 @@
 #ifndef MODBUS_H
 #define MODBUS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -143,5 +147,9 @@ int modbus_slave_remove_register(modbus_slave_t *slave, modbus_register_t *reg);
  *         - 2: ADU is not valid (too short or wrong CRC)
  */
 int modbus_slave_handle_rtu(modbus_slave_t *slave, uint8_t *buf, uint16_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*MODBUS_H*/

@@ -1,13 +1,8 @@
-#include "test_slave_read_reg.h"
-
 #include "modbus.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "gtest/gtest.h"
 
-void test_slave_read_reg_invalid_data(void) {
-    printf("%s: ", __func__);
-
+TEST(slave_read_reg, invalid_data) {
     modbus_slave_t slave;
     modbus_slave_init(&slave);
     slave.id = 0x01;
@@ -15,23 +10,13 @@ void test_slave_read_reg_invalid_data(void) {
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0C};
 
     int rc = modbus_slave_handle_rtu(&slave, buf, 6);
-    if (rc != 2) {
-        printf("expect 2 but: %d\r\n", rc);
-        exit(-1);
-    }
+    EXPECT_EQ(2, rc);
 
     rc = modbus_slave_handle_rtu(&slave, buf, 8);
-    if (rc != 2) {
-        printf("expect 2 but: %d\r\n", rc);
-        exit(-1);
-    }
-
-    printf("pass!\r\n");
+    EXPECT_EQ(2, rc);
 }
 
-void test_slave_read_reg_not_this_device(void) {
-    printf("%s: ", __func__);
-
+TEST(slave_read_reg, not_this_device) {
     modbus_slave_t slave;
     modbus_slave_init(&slave);
     slave.id = 0x02;
@@ -39,17 +24,10 @@ void test_slave_read_reg_not_this_device(void) {
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
 
     int rc = modbus_slave_handle_rtu(&slave, buf, 8);
-    if (rc != 1) {
-        printf("expect 1 but: %d\r\n", rc);
-        exit(-1);
-    }
-
-    printf("pass!\r\n");
+    EXPECT_EQ(1, rc);
 }
 
-void test_slave_read_reg_wrong_address(void) {
-    printf("%s: ", __func__);
-
+TEST(slave_read_reg, wrong_address) {
     modbus_slave_t slave;
     modbus_slave_init(&slave);
     slave.id = 0x01;
@@ -57,17 +35,9 @@ void test_slave_read_reg_wrong_address(void) {
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x01, 0x00, 0x01, 0xD5, 0xCA};
 
     int rc = modbus_slave_handle_rtu(&slave, buf, 8);
-    if (rc != 0) {
-        printf("expect 0 but: %d\r\n", rc);
-        exit(-1);
-    }
 
-    if (buf[1] != 0x83) {
-        printf("expect 0x83 but: 0x%x", buf[1]);
-        exit(-1);
-    }
-
-    printf("pass!\r\n");
+    EXPECT_EQ(0, rc);
+    EXPECT_EQ(0x83, buf[1]);
 }
 
 int slave_on_reply(modbus_slave_t *slave, uint8_t *buf, uint16_t len) {
@@ -80,9 +50,7 @@ int slave_on_reply(modbus_slave_t *slave, uint8_t *buf, uint16_t len) {
     return 0;
 }
 
-void test_slave_read_reg_normal(void) {
-    printf("%s: \r\n", __func__);
-
+TEST(slave_read_reg, normal) {
     modbus_slave_t slave;
     modbus_slave_init(&slave);
     slave.id = 0x01;
@@ -115,32 +83,22 @@ void test_slave_read_reg_normal(void) {
 
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
     int rc = modbus_slave_handle_rtu(&slave, buf, 8);
-    if(rc != 0x00 || buf[1] != 0x03) {
-        printf("wrong rc or fc: %d %d\r\n", rc, buf[1]);
-        exit(-1);
-    }
+    EXPECT_EQ(0x00, rc);
+    EXPECT_EQ(0x03, buf[1]);
 
     uint8_t buf1[256] = {0x01, 0x03, 0x00, 0x02, 0x00, 0x02, 0x65, 0xCB};
     rc = modbus_slave_handle_rtu(&slave, buf1, 8);
-    if(rc != 0x00 || buf1[1] != 0x03) {
-        printf("wrong rc or fc: %d %d\r\n", rc, buf1[1]);
-        exit(-1);
-    }
+    EXPECT_EQ(0x00, rc);
+    EXPECT_EQ(0x03, buf1[1]);
 
     uint8_t buf2[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x04, 0x44, 0x09};
     rc = modbus_slave_handle_rtu(&slave, buf2, 8);
-    if(rc != 0x00 || buf2[1] != 0x03) {
-        printf("wrong rc or fc: %d %d\r\n", rc, buf2[1]);
-        exit(-1);
-    }
+    EXPECT_EQ(0x00, rc);
+    EXPECT_EQ(0x03, buf2[1]);
 
     uint8_t buf3[256] = {0x01, 0x03, 0x00, 0x04, 0x00, 0x02, 0x85, 0xCA};
     rc = modbus_slave_handle_rtu(&slave, buf3, 8);
-    if(rc != 0x00 || buf3[1] != 0x03) {
-        printf("wrong rc or fc: %d %d\r\n", rc, buf3[1]);
-        exit(-1);
-    }
-
-    printf("pass!\r\n");
+    EXPECT_EQ(0x00, rc);
+    EXPECT_EQ(0x03, buf3[1]);
 }
 
