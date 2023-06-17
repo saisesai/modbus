@@ -4,12 +4,15 @@ project(modbus)
 
 add_library(modbus STATIC src/modbus.c)
 target_include_directories(modbus PUBLIC include)
-target_compile_options(modbus PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(
+        modbus PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
+)
 set_property(TARGET modbus PROPERTY C_STANDARD 90)
 set_property(TARGET modbus PROPERTY C_STANDARD_REQUIRED ON)
 
 add_subdirectory(third_party/googletest)
-target_compile_options(gtest PRIVATE -Wno-undef)
 add_executable(
         modbus_test
         test/test_slave_read_reg.cc

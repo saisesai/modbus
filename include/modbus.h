@@ -62,7 +62,7 @@ typedef struct modbus_register_s modbus_register_t;
  * @return Return value indicating the result of the callback.
  *         A negative value indicates an internal error.
  */
-typedef int (*modbus_register_rw_cb)(modbus_register_t *reg, uint8_t *buf);
+typedef int (*modbus_register_rw_cb)(modbus_register_t *reg, const uint8_t *buf);
 
 /**
  * @brief Modbus register chain list node.

@@ -222,7 +222,14 @@ static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
             return 0x03;
         }
 
-        /* TODO: change the rule */
+        /* Do read callback */
+        if (reg_now->on_read != NULL) {
+            if (reg_now->on_read(reg_now, NULL) < 0) {
+                modbus_slave_handle_rtu_exception(slave, buf, 0x04);
+                return 0x04;
+            }
+        }
+
         /* Copy register data to the response buffer */
         memcpy(&buf[copied + 3], reg_now->data, reg_now->size * 2);
         copied += reg_now->size * 2;
@@ -230,7 +237,7 @@ static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
     }
 
     /* Update the response buffer with the copied register quantity */
-    buf[2] = copied;
+    buf[2] = (uint8_t) copied;
 
     /* Calculate and append the CRC16 checksum */
     crc16 = modbus_crc16(buf, copied + 3);
@@ -250,10 +257,10 @@ static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
  * @param slave Pointer to the Modbus slave structure.
  * @param buf Pointer to the buffer containing the received Modbus RTU request.
  * @return 0 on successful handling of the function code, an error code otherwise.
+ *     - 0x01: Function code not supported.
  *     - 0x02: Invalid register address.
  *     - 0x03: Invalid register quantity or byte count.
  *     - 0x04: Internal error during register writing.
- *     - 0x01: Function code not supported.
  */
 static int modbus_slave_handle_rtu_fc10(modbus_slave_t *slave, uint8_t *buf) {
     int reg_found;
