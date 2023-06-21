@@ -163,7 +163,7 @@ static int modbus_slave_find_register(modbus_slave_t *slave, uint16_t addr_start
  *      - 0x02: invalid register address.
  *      - 0x03: invalid register quantity.
  *      - 0x04: internal error.
- * @return 0 indicating successful handling of the RTU exception.
+ * @return Exception code.
  */
 static int modbus_slave_handle_rtu_exception(modbus_slave_t *slave, uint8_t *buf, uint8_t code) {
     uint16_t crc16;
@@ -178,7 +178,7 @@ static int modbus_slave_handle_rtu_exception(modbus_slave_t *slave, uint8_t *buf
         slave->on_reply(slave, buf, 5); /* Call the on_reply callback function with the modified buffer */
     }
 
-    return 0; /* Return 0 indicating successful handling of the RTU exception */
+    return code;
 }
 
 /**
@@ -202,8 +202,7 @@ static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
     reg_found = modbus_slave_find_register(slave, addr_start + 1, &reg_now);
     if (!reg_found) {
         /* Handle the exception case of an invalid register address */
-        modbus_slave_handle_rtu_exception(slave, buf, 0x02);
-        return 0x02;
+        return modbus_slave_handle_rtu_exception(slave, buf, 0x02);
     }
 
     /* Copy registers */
@@ -218,15 +217,13 @@ static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
             (reg_now->index - 1) * 2 != copied + addr_start * 2 ||
             copied > reg_quantity * 2) {
             /* Handle the exception case of an invalid register quantity */
-            modbus_slave_handle_rtu_exception(slave, buf, 0x03);
-            return 0x03;
+            return modbus_slave_handle_rtu_exception(slave, buf, 0x03);
         }
 
         /* Do read callback */
         if (reg_now->on_read != NULL) {
             if (reg_now->on_read(reg_now, NULL) < 0) {
-                modbus_slave_handle_rtu_exception(slave, buf, 0x04);
-                return 0x04;
+                return modbus_slave_handle_rtu_exception(slave, buf, 0x04);
             }
         }
 
@@ -277,8 +274,7 @@ static int modbus_slave_handle_rtu_fc10(modbus_slave_t *slave, uint8_t *buf) {
     reg_found = modbus_slave_find_register(slave, addr_start + 1, &reg_now);
     if (!reg_found) {
         /* Handle the exception case of an invalid register address */
-        modbus_slave_handle_rtu_exception(slave, buf, 0x02);
-        return 0x02;
+        return modbus_slave_handle_rtu_exception(slave, buf, 0x02);
     }
 
     /* Perform on_write callback and copy value to register */
@@ -292,24 +288,21 @@ static int modbus_slave_handle_rtu_fc10(modbus_slave_t *slave, uint8_t *buf) {
             (reg_now->index - 1) * 2 != copied + addr_start * 2 ||
             byte_count < copied + reg_now->size) {
             /* Handle the exception case of an invalid register quantity or byte count */
-            modbus_slave_handle_rtu_exception(slave, buf, 0x03);
-            return 0x03;
+            return modbus_slave_handle_rtu_exception(slave, buf, 0x03);
         }
 
-        /* TODO: change the rule */
+        /* do registers on write callback */
         if (reg_now->on_write != NULL) {
             if (reg_now->on_write(reg_now, &buf[copied + 7]) < 0) {
                 /* Handle the internal error case during register writing */
-                modbus_slave_handle_rtu_exception(slave, buf, 0x04);
-                return 0x04;
+                return modbus_slave_handle_rtu_exception(slave, buf, 0x04);
             }
-            copied += reg_now->size * 2;
-            reg_now = reg_now->next;
-        } else {
-            /* Handle the exception case of function code not supported */
-            modbus_slave_handle_rtu_exception(slave, buf, 0x01);
-            return 0x01;
         }
+
+        /* copy buffer to register */
+        memcpy(reg_now->data, &buf[copied + 7], reg_now->size * 2);
+        copied += reg_now->size * 2;
+        reg_now = reg_now->next;
     }
 
     /* Success */
@@ -322,30 +315,31 @@ static int modbus_slave_handle_rtu_fc10(modbus_slave_t *slave, uint8_t *buf) {
 }
 
 int modbus_slave_handle_rtu(modbus_slave_t *slave, uint8_t *buf, uint16_t len) {
+    int rc;
     uint16_t crc16;
     /*check data integrity*/
-    if (len < 8) return 2;
+    if (len < 8) return -2;
     /*check id*/
-    if (buf[0] != slave->id) return 1;
+    if (buf[0] != slave->id) return -1;
     /*check crc*/
     crc16 = modbus_crc16(buf, len - 2);
-    if (0 != memcmp(&buf[len - 2], &crc16, 2)) return 2;
+    if (0 != memcmp(&buf[len - 2], &crc16, 2)) return -2;
     /*handle request*/
     switch (buf[1]) {
         case 0x03: {
             /*read holding registers*/
-            modbus_slave_handle_rtu_fc03(slave, buf);
+            rc = modbus_slave_handle_rtu_fc03(slave, buf);
             break;
         }
         case 0x10: {
             /*write multiple registers*/
-            modbus_slave_handle_rtu_fc10(slave, buf);
+            rc = modbus_slave_handle_rtu_fc10(slave, buf);
             break;
         }
         default: {
             /*function code not supported*/
-            modbus_slave_handle_rtu_exception(slave, buf, 0x01);
+            rc = modbus_slave_handle_rtu_exception(slave, buf, 0x01);
         }
     }
-    return 0;
+    return rc;
 }

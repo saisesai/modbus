@@ -142,9 +142,13 @@ int modbus_slave_remove_register(modbus_slave_t *slave, modbus_register_t *reg);
  * @param buf Pointer to the data buffer.
  * @param len Length of the data in Bytes.
  * @return Returns the result of the handling:
- *         - 0: OK
- *         - 1: ADU is not intended for this device
- *         - 2: ADU is not valid (too short or wrong CRC)
+ *         -  0: OK
+ *         -  1: Function not supported
+ *         -  2: Invalid data address
+ *         -  3: Invalid data value
+ *         -  4: Internal error
+ *         - -1: ADU is not intended for this device
+ *         - -2: ADU is not valid (too short or wrong CRC)
  */
 int modbus_slave_handle_rtu(modbus_slave_t *slave, uint8_t *buf, uint16_t len);
 
