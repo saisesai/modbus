@@ -16,6 +16,7 @@ add_subdirectory(third_party/googletest)
 add_executable(
         modbus_test
         test/test_helpers.cc
+        test/test_master_read_reg.cc
         test/test_slave_read_reg.cc
         test/test_slave_write_reg.cc
 )

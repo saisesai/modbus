@@ -249,7 +249,6 @@ static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
     return 0;
 }
 
-
 /**
  * @brief Handles the Modbus function code 10 (Write Multiple Registers) in Modbus RTU.
  * @param slave Pointer to the Modbus slave structure.
@@ -316,7 +315,7 @@ static int modbus_slave_handle_rtu_fc10(modbus_slave_t *slave, uint8_t *buf) {
     return 0;
 }
 
-int modbus_slave_handle_rtu(modbus_slave_t *slave, uint8_t *buf, uint16_t len) {
+int modbus_slave_rtu_handle(modbus_slave_t *slave, uint8_t *buf, uint16_t len) {
     int rc;
     uint16_t crc16;
     /*check data integrity*/
@@ -348,4 +347,37 @@ int modbus_slave_handle_rtu(modbus_slave_t *slave, uint8_t *buf, uint16_t len) {
         }
     }
     return rc;
+}
+
+int modbus_master_read_registers_rtu(
+        uint8_t device_id,
+        uint16_t addr, uint16_t quan,
+        uint8_t *buf, uint8_t *len
+) {
+    return modbus_master_read_registers_rtu_ex(
+            device_id,
+            MODBUS_READ_HOLDING_REGISTERS,
+            addr, quan,
+            buf, len
+    );
+}
+
+int modbus_master_read_registers_rtu_ex(
+        uint8_t device_id,
+        uint8_t function_code,
+        uint16_t addr, uint16_t quan,
+        uint8_t *buf, uint8_t *len
+) {
+    uint16_t crc16;
+    if (*len < 8) { /*buffer too small*/
+        return -1;
+    }
+    buf[0] = device_id;
+    buf[1] = function_code;
+    modbus_uint16_to_reg(addr, &buf[2]);
+    modbus_uint16_to_reg(quan, &buf[4]);
+    crc16 = modbus_crc16(buf, 6);
+    memcpy(&buf[6], &crc16, 2);
+    *len = 8;
+    return *len;
 }

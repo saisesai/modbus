@@ -25,7 +25,7 @@ TEST(slave_write, write_one_register) {
             0xCF, 0xFC
     };
 
-    modbus_slave_handle_rtu(&slave, buf, 13);
+    modbus_slave_rtu_handle(&slave, buf, 13);
     ASSERT_EQ(0x11223344, data);
 }
 
@@ -57,7 +57,7 @@ TEST(slave_write, write_multi_registers) {
             0x04, 0x44, 0x33, 0x22, 0x11,
             0xCF, 0xFC
     };
-    modbus_slave_handle_rtu(&slave, buf_u32, 13);
+    modbus_slave_rtu_handle(&slave, buf_u32, 13);
     ASSERT_EQ(0x11223344, data_u32);
 
     uint8_t buf_f32[256] = {
@@ -66,6 +66,6 @@ TEST(slave_write, write_multi_registers) {
             0x04, 0xC3, 0xF5, 0x48, 0x40,
             0x69, 0xF0
     };
-    modbus_slave_handle_rtu(&slave, buf_f32, 13);
+    modbus_slave_rtu_handle(&slave, buf_f32, 13);
     ASSERT_EQ(3.14f, data_f32);
 }

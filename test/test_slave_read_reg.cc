@@ -14,10 +14,10 @@ TEST(slave_read_reg, invalid_data) {
 
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0C};
 
-    int rc = modbus_slave_handle_rtu(&slave, buf, 6);
+    int rc = modbus_slave_rtu_handle(&slave, buf, 6);
     EXPECT_EQ(-2, rc);
 
-    rc = modbus_slave_handle_rtu(&slave, buf, 8);
+    rc = modbus_slave_rtu_handle(&slave, buf, 8);
     EXPECT_EQ(-2, rc);
 }
 
@@ -28,7 +28,7 @@ TEST(slave_read_reg, not_this_device) {
 
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
 
-    int rc = modbus_slave_handle_rtu(&slave, buf, 8);
+    int rc = modbus_slave_rtu_handle(&slave, buf, 8);
     EXPECT_EQ(-1, rc);
 }
 
@@ -39,7 +39,7 @@ TEST(slave_read_reg, wrong_address) {
 
     uint8_t buf[256] = {0x01, 0x03, 0x00, 0x01, 0x00, 0x01, 0xD5, 0xCA};
 
-    int rc = modbus_slave_handle_rtu(&slave, buf, 8);
+    int rc = modbus_slave_rtu_handle(&slave, buf, 8);
 
     EXPECT_EQ(2, rc);
     EXPECT_EQ(0x83, buf[1]);
@@ -87,12 +87,12 @@ TEST(slave_read_reg, on_read) {
     modbus_slave_add_register(&slave, &t2_reg);
 
     uint8_t buf0[256] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
-    modbus_slave_handle_rtu(&slave, buf0, 8);
+    modbus_slave_rtu_handle(&slave, buf0, 8);
     EXPECT_EQ(0x83, buf0[1]);
     EXPECT_EQ(0x04, buf0[2]);
 
     uint8_t buf1[256] = {0x01, 0x03, 0x00, 0x02, 0x00, 0x02, 0x65, 0xCB};
-    modbus_slave_handle_rtu(&slave, buf1, 8);
+    modbus_slave_rtu_handle(&slave, buf1, 8);
     EXPECT_EQ(0x03, buf1[1]);
     float t2_out;
     memcpy(&t2_out, &buf1[3], 4);
