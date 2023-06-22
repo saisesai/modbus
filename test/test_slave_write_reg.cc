@@ -8,7 +8,7 @@ TEST(slave_write, write_one_register) {
     modbus_slave_t slave;
     modbus_slave_init(&slave);
     slave.id = 0x01;
-    slave.on_reply = slave_on_reply;
+    slave.on_write = slave_on_reply;
 
     uint32_t data = 0;
     modbus_register_t reg;
@@ -33,7 +33,7 @@ TEST(slave_write, write_multi_registers) {
     modbus_slave_t slave;
     modbus_slave_init(&slave);
     slave.id = 0x01;
-    slave.on_reply = slave_on_reply;
+    slave.on_write = slave_on_reply;
 
     uint32_t data_u32 = 0;
     modbus_register_t reg_u32;

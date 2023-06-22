@@ -65,7 +65,8 @@ TEST(slave_read_reg, on_read) {
     modbus_slave_t slave;
     modbus_slave_init(&slave);
     slave.id = 0x01;
-    slave.on_reply = slave_on_reply;
+    slave.on_read = slave_on_receive;
+    slave.on_write = slave_on_reply;
 
     float t1 = 3.14f;
     modbus_register_t t1_reg;
@@ -94,7 +95,7 @@ TEST(slave_read_reg, on_read) {
     modbus_slave_handle_rtu(&slave, buf1, 8);
     EXPECT_EQ(0x03, buf1[1]);
     float t2_out;
-    std::memcpy(&t2_out, &buf1[3], 4);
+    memcpy(&t2_out, &buf1[3], 4);
     EXPECT_EQ(2.33f, t2_out);
 }
 

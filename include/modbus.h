@@ -94,14 +94,14 @@ struct modbus_slave_s;
 typedef struct modbus_slave_s modbus_slave_t;
 
 /**
- * @brief Modbus reply callback function prototype.
+ * @brief Modbus receive/reply callback function prototype.
  * @param slave Pointer to the Modbus slave.
- * @param buf Pointer to the reply data.
- * @param len Length of the reply data.
+ * @param buf Pointer to the data.
+ * @param len Length of the data.
  * @return Returns a value indicating the result of the callback.
  *         A negative value indicates an error.
  */
-typedef int (*modbus_on_reply_cb)(modbus_slave_t *slave, uint8_t *buf, uint16_t len);
+typedef int (*modbus_slave_rw_cb)(modbus_slave_t *slave, uint8_t *buf, uint16_t len);
 
 /**
  * @brief Modbus slave structure.
@@ -110,7 +110,8 @@ struct modbus_slave_s {
     uint8_t id; /**< Slave ID. */
     modbus_register_t register_entry; /**< Register chain list entry. */
     uint16_t register_len; /**< Length of the register chan list. */
-    modbus_on_reply_cb on_reply; /**< Callback function for Modbus reply. */
+    modbus_slave_rw_cb on_read; /**< Callback function for slave receive. */
+    modbus_slave_rw_cb on_write; /**< Callback function for slave reply. */
 };
 
 /**

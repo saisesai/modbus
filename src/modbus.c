@@ -94,7 +94,8 @@ int modbus_slave_init(modbus_slave_t *slave) {
     slave->id = 0;
     modbus_register_init(&slave->register_entry);
     slave->register_len = 0;
-    slave->on_reply = NULL;
+    slave->on_read = NULL;
+    slave->on_write = NULL;
     return 0;
 }
 
@@ -174,8 +175,8 @@ static int modbus_slave_handle_rtu_exception(modbus_slave_t *slave, uint8_t *buf
     crc16 = modbus_crc16(buf, 3); /* Calculate CRC16 checksum for the modified buffer */
     memcpy(&buf[3], &crc16, 2); /* Append the CRC16 checksum to the buffer */
 
-    if (slave->on_reply != NULL) {
-        slave->on_reply(slave, buf, 5); /* Call the on_reply callback function with the modified buffer */
+    if (slave->on_write != NULL) {
+        slave->on_write(slave, buf, 5); /* Call the on_reply callback function with the modified buffer */
     }
 
     return code;
@@ -241,8 +242,8 @@ static int modbus_slave_handle_rtu_fc03(modbus_slave_t *slave, uint8_t *buf) {
     memcpy(&buf[copied + 3], &crc16, 2);
 
     /* Call the on_reply callback function with the response buffer if registered */
-    if (slave->on_reply != NULL) {
-        slave->on_reply(slave, buf, copied + 3 + 2);
+    if (slave->on_write != NULL) {
+        slave->on_write(slave, buf, copied + 3 + 2);
     }
 
     return 0;
@@ -308,9 +309,10 @@ static int modbus_slave_handle_rtu_fc10(modbus_slave_t *slave, uint8_t *buf) {
     /* Success */
     crc16 = modbus_crc16(buf, 6);
     memcpy(&buf[6], &crc16, 2);
-    if (slave->on_reply != NULL) {
-        slave->on_reply(slave, buf, 8);
+    if (slave->on_write != NULL) {
+        slave->on_write(slave, buf, 8);
     }
+
     return 0;
 }
 
@@ -324,6 +326,10 @@ int modbus_slave_handle_rtu(modbus_slave_t *slave, uint8_t *buf, uint16_t len) {
     /*check crc*/
     crc16 = modbus_crc16(buf, len - 2);
     if (0 != memcmp(&buf[len - 2], &crc16, 2)) return -2;
+    /*handle on receive callback*/
+    if (slave->on_read != NULL) {
+        slave->on_read(slave, buf, len);
+    }
     /*handle request*/
     switch (buf[1]) {
         case 0x03: {
