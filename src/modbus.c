@@ -381,3 +381,24 @@ int modbus_master_read_registers_rtu_ex(
     *len = 8;
     return *len;
 }
+
+int modbus_master_write_registers_rtu(
+        uint8_t device_id,
+        uint16_t addr, uint16_t quan, uint8_t *regs,
+        uint8_t *buf, uint8_t *len
+) {
+    uint16_t crc16;
+    if (*len < (9 + quan * 2)) { /*buffer too small*/
+        return -1;
+    }
+    buf[0] = device_id;
+    buf[1] = MODBUS_WRITE_MULTI_REGISTERS;
+    modbus_uint16_to_reg(addr, &buf[2]);
+    modbus_uint16_to_reg(quan, &buf[4]);
+    buf[6] = (uint8_t) (quan * 2);
+    memcpy(&buf[7], regs, quan * 2);
+    crc16 = modbus_crc16(buf, 7 + quan * 2);
+    memcpy(&buf[7 + quan * 2], &crc16, 2);
+    *len = (uint8_t) (9 + quan * 2);
+    return *len;
+}

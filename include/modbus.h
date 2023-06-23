@@ -12,6 +12,7 @@ extern "C" {
 
 #define MODBUS_READ_HOLDING_REGISTERS 0x03
 #define MODBUS_READ_INPUT_REGISTERS   0x04
+#define MODBUS_WRITE_MULTI_REGISTERS  0x10
 
 /**
  * @brief Converts a Modbus register format buffer to uint16 format.
@@ -166,6 +167,12 @@ int modbus_master_read_registers_rtu_ex(
         uint8_t device_id,
         uint8_t function_code,
         uint16_t addr, uint16_t quan,
+        uint8_t *buf, uint8_t *len
+);
+
+int modbus_master_write_registers_rtu(
+        uint8_t device_id,
+        uint16_t addr, uint16_t quan, uint8_t* regs,
         uint8_t *buf, uint8_t *len
 );
 
